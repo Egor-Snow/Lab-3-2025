@@ -7,6 +7,32 @@ public class ArrayTabulatedFunction implements TabulatedFunction {
 
     //Машинный эпсилон, нужен для того, чтобы сравнивать переменные с типами double и float
     private static final double EPS = 1e-9;
+// в классе ArrayTabulatedFunction (package functions)
+
+    public ArrayTabulatedFunction(FunctionPoint[] points) {
+        if (points == null) {
+            throw new IllegalArgumentException("Points array is null");
+        }
+        if (points.length < 2) {
+            throw new IllegalArgumentException("At least two points required");
+        }
+
+        // проверяем упорядоченность по X и копируем (инкапсуляция)
+        this.pointsCount = points.length;
+        // можем дать небольшой запас в массиве, но допустим точь-в-точь
+        this.points = new FunctionPoint[pointsCount];
+
+        // Проверяем и копируем первый элемент
+        this.points[0] = new FunctionPoint(points[0]); // копия
+        for (int i = 1; i < points.length; i++) {
+            double prevX = points[i - 1].getX();
+            double curX = points[i].getX();
+            if (curX <= prevX + EPS)  { // требует строгого возрастания
+                throw new IllegalArgumentException("Points must be strictly increasing by X (index " + i + ")");
+            }
+            this.points[i] = new FunctionPoint(points[i]); // копия
+        }
+    }
 
     //Конструктор, создающий табулированную функцию с равномерными интервалами по X. Значения функции по умолчанию равны 0.
     public ArrayTabulatedFunction(double leftX, double rightX, int pointsCount) {
@@ -20,19 +46,19 @@ public class ArrayTabulatedFunction implements TabulatedFunction {
         if (pointsCount < 2) {
             throw new IllegalArgumentException("At least two points required");
         }
-            // Инициализация массива точек
-            this.pointsCount = pointsCount;
-            this.points = new FunctionPoint[pointsCount];
+        // Инициализация массива точек
+        this.pointsCount = pointsCount;
+        this.points = new FunctionPoint[pointsCount];
 
-            // Вычисление шага по X между точками
-            double step = (rightX - leftX) / (pointsCount - 1);
+        // Вычисление шага по X между точками
+        double step = (rightX - leftX) / (pointsCount - 1);
 
-            // Заполнение массива точек, Y = 0 по умолчанию
-            for (int i = 0; i < pointsCount; i++) {
-                double x = leftX + i * step;
-                points[i] = new FunctionPoint(x, 0.0);
-            }
+        // Заполнение массива точек, Y = 0 по умолчанию
+        for (int i = 0; i < pointsCount; i++) {
+            double x = leftX + i * step;
+            points[i] = new FunctionPoint(x, 0.0);
         }
+    }
 
 
     // Создаёт табулированную функцию с заданными значениями, X распределяются равномерно между leftX и rightX.
@@ -74,35 +100,33 @@ public class ArrayTabulatedFunction implements TabulatedFunction {
 
     //Возвращает значение функции в точке x.
     public double getFunctionValue(double x) {
-        // Если x вне диапазона — возвращаем неопределённость
         if (x < getLeftDomainBorder() || x > getRightDomainBorder()) {
             return Double.NaN;
         }
 
-        // Если x совпадает с одной из табличных точек
-        for (int i = 0; i < pointsCount; i++) {
-            if (Math.abs(x - points[i].getX()) < EPS) {
-                return points[i].getY();
-            }
-        }
+        // Проверка крайних точек
+        if (Math.abs(x - points[0].getX()) < EPS)
+            return points[0].getY();
 
-        // Ищем интервал, в который попадает x
+        if (Math.abs(x - points[pointsCount - 1].getX()) < EPS)
+            return points[pointsCount - 1].getY();
+
         for (int i = 0; i < pointsCount - 1; i++) {
             double x1 = points[i].getX();
-            double y1 = points[i].getY();
-            double x2 = points[i + 1].getX();
-            double y2 = points[i + 1].getY();
+            double x2 = points[i+1].getX();
+
+            if (Math.abs(x - x2) < EPS) return points[i+1].getY();
 
             if (x > x1 && x < x2) {
-                // Линейная интерполяция:
-                // y = y1 + (y2 - y1) * ((x - x1) / (x2 - x1))
-                return y1 + (y2 - y1) * ((x - x1) / (x2 - x1));
+                double y1 = points[i].getY();
+                double y2 = points[i+1].getY();
+                return y1 + (y2 - y1) * ( (x - x1) / (x2 - x1) );
             }
         }
 
-        // На всякий случай, если ничего не нашли (не должно случиться)
         return Double.NaN;
     }
+
 
     //Возвращает количество точек табулированной функции.
     public int getPointsCount() {
@@ -133,7 +157,7 @@ public class ArrayTabulatedFunction implements TabulatedFunction {
         }
 
         points[index] = new FunctionPoint(point);
-        }
+    }
 
     //Возвращает X точки с указанным индексом.
     public double getPointX(int index) {
